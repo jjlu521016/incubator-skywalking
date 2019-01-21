@@ -18,20 +18,30 @@
 
 package org.apache.skywalking.apm.plugin.spring.mvc.commons.interceptor;
 
+import com.alibaba.fastjson.JSON;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import org.apache.skywalking.apm.agent.core.context.CarrierItem;
 import org.apache.skywalking.apm.agent.core.context.ContextCarrier;
 import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.MethodInterceptResult;
 import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.EnhanceRequireObjectCache;
+import org.apache.skywalking.apm.plugin.spring.mvc.commons.util.NetUtil;
+import org.apache.skywalking.apm.util.StringUtil;
+import org.springframework.util.CollectionUtils;
+import org.springframework.validation.Errors;
 
 import static org.apache.skywalking.apm.plugin.spring.mvc.commons.Constants.FORWARD_REQUEST_FLAG;
 import static org.apache.skywalking.apm.plugin.spring.mvc.commons.Constants.REQUEST_KEY_IN_RUNTIME_CONTEXT;
@@ -41,6 +51,11 @@ import static org.apache.skywalking.apm.plugin.spring.mvc.commons.Constants.RESP
  * the abstract method inteceptor
  */
 public abstract class AbstractMethodInterceptor implements InstanceMethodsAroundInterceptor {
+
+    private static final ILog logger = LogManager.getLogger(AbstractMethodInterceptor.class);
+
+    private static final String IP = NetUtil.getLocalIP();
+
     public abstract String getRequestURL(Method method);
 
     @Override
@@ -75,7 +90,36 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
 
             AbstractSpan span = ContextManager.createEntrySpan(requestURL, contextCarrier);
             Tags.URL.set(span, request.getRequestURL().toString());
+            Tags.HOST_ADDR.set(span, IP);
             Tags.HTTP.METHOD.set(span, request.getMethod());
+
+            // POST PUT method
+            StringBuilder params = new StringBuilder();
+            String requestParams = request.getQueryString();
+            if (!StringUtil.isEmpty(requestParams)) {
+                params.append("urlParams:").append(requestParams).append("\n\n");
+            }
+            if (allArguments.length > 0) {
+                List<Object> filterArguments = new ArrayList<Object>();
+                for (Object argument : allArguments) {
+                    if (argument instanceof HttpServletRequest || argument instanceof HttpServletResponse
+                        || argument instanceof HttpSession || argument instanceof Errors) {
+                        continue;
+                    } else {
+                        filterArguments.add(argument);
+                    }
+                }
+                if (!CollectionUtils.isEmpty(filterArguments)) {
+                    try {
+                        params.append("requestBody:").append(JSON.toJSONString(filterArguments));
+                    } catch (Exception e) {
+                        logger.warn("[springMVC Intercepter] allArguments  can't Serializer!! uri is {}", request.getRequestURL().toString());
+                    }
+                }
+
+            }
+            Tags.HTTP.REQUEST_ARGS.set(span, params.toString());
+
             span.setComponent(ComponentsDefine.SPRING_MVC_ANNOTATION);
             SpanLayer.asHttp(span);
         }
@@ -101,9 +145,22 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
                     span.errorOccurred();
                     Tags.STATUS_CODE.set(span, Integer.toString(response.getStatus()));
                 }
-                ContextManager.stopSpan();
+                if (ret != null) {
+                    if (ret instanceof String) {
+                        Tags.HTTP.RESPONSE_RESULT.set(span, (String)ret);
+                    } else {
+                        try {
+                            String result = JSON.toJSONString(ret);
+                            Tags.HTTP.RESPONSE_RESULT.set(span, result);
+                        } catch (Exception e) {
+                            logger.warn("[springMVC Intercepter] return result  can't Serializer!!");
+                        }
+                    }
+                }
             }
         } finally {
+            // fix trace leak
+            ContextManager.stopSpan();
             ContextManager.getRuntimeContext().remove(REQUEST_KEY_IN_RUNTIME_CONTEXT);
             ContextManager.getRuntimeContext().remove(RESPONSE_KEY_IN_RUNTIME_CONTEXT);
         }
