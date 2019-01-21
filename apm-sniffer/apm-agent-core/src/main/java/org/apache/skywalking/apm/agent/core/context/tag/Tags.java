@@ -35,6 +35,15 @@ public final class Tags {
     public static final StringTag URL = new StringTag(1, "url");
 
     /**
+     * host
+     */
+    public static final StringTag HOST_ADDR = new StringTag("hostAddr");
+    /**
+     * URL param the url of the incoming request
+     */
+    public static final StringTag URL_PARAM = new StringTag("url.param");
+
+    /**
      * STATUS_CODE records the http status code of the response.
      */
     public static final StringTag STATUS_CODE = new StringTag(2, "status_code", true);
@@ -74,7 +83,11 @@ public final class Tags {
      */
     public static final StringTag MQ_TOPIC = new StringTag(9, "mq.topic");
 
+    public static final StringTag MQ_STATEMENT = new StringTag("mq.context");
+
     public static final class HTTP {
         public static final StringTag METHOD = new StringTag(10, "http.method");
+        public static final StringTag REQUEST_ARGS = new StringTag("http.req.args");
+        public static final StringTag RESPONSE_RESULT = new StringTag("http.response");
     }
 }

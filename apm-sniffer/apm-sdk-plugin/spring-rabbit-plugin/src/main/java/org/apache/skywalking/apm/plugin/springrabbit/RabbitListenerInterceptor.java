@@ -58,6 +58,10 @@ public class RabbitListenerInterceptor implements InstanceMethodsAroundIntercept
         Tags.MQ_BROKER.set(activeSpan, url);
         Tags.MQ_TOPIC.set(activeSpan, topic);
         Tags.MQ_QUEUE.set(activeSpan, queue);
+        // record mq message
+        if (allArguments.length > 4) {
+            Tags.MQ_STATEMENT.set(activeSpan, new String((byte[]) allArguments[5]));
+        }
         activeSpan.setComponent(ComponentsDefine.RABBITMQ_CONSUMER);
         SpanLayer.asMQ(activeSpan);
         CarrierItem next = contextCarrier.items();
