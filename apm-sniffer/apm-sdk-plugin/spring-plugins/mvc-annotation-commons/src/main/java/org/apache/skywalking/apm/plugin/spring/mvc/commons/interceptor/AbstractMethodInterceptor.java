@@ -20,11 +20,8 @@ package org.apache.skywalking.apm.plugin.spring.mvc.commons.interceptor;
 
 import com.alibaba.fastjson.JSON;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.apache.skywalking.apm.agent.core.context.CarrierItem;
 import org.apache.skywalking.apm.agent.core.context.ContextCarrier;
 import org.apache.skywalking.apm.agent.core.context.ContextManager;
@@ -40,8 +37,6 @@ import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.EnhanceRequireObjectCache;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.util.NetUtil;
 import org.apache.skywalking.apm.util.StringUtil;
-import org.springframework.util.CollectionUtils;
-import org.springframework.validation.Errors;
 
 import static org.apache.skywalking.apm.plugin.spring.mvc.commons.Constants.FORWARD_REQUEST_FLAG;
 import static org.apache.skywalking.apm.plugin.spring.mvc.commons.Constants.REQUEST_KEY_IN_RUNTIME_CONTEXT;
@@ -90,35 +85,17 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
 
             AbstractSpan span = ContextManager.createEntrySpan(requestURL, contextCarrier);
             Tags.URL.set(span, request.getRequestURL().toString());
-            Tags.HOST_ADDR.set(span, IP);
+            Tags.HTTP.HOST_ADDR.set(span, IP);
             Tags.HTTP.METHOD.set(span, request.getMethod());
 
-            // POST PUT method
-            StringBuilder params = new StringBuilder();
             String requestParams = request.getQueryString();
             if (!StringUtil.isEmpty(requestParams)) {
-                params.append("urlParams:").append(requestParams).append("\n\n");
+                Tags.HTTP.REQUEST_PARAM.set(span, requestParams);
             }
-            if (allArguments.length > 0) {
-                List<Object> filterArguments = new ArrayList<Object>();
-                for (Object argument : allArguments) {
-                    if (argument instanceof HttpServletRequest || argument instanceof HttpServletResponse
-                        || argument instanceof HttpSession || argument instanceof Errors) {
-                        continue;
-                    } else {
-                        filterArguments.add(argument);
-                    }
-                }
-                if (!CollectionUtils.isEmpty(filterArguments)) {
-                    try {
-                        params.append("requestBody:").append(JSON.toJSONString(filterArguments));
-                    } catch (Exception e) {
-                        logger.warn("[springMVC Intercepter] allArguments  can't Serializer!! uri is {}", request.getRequestURL().toString());
-                    }
-                }
-
+            String reqBody = JSON.toJSONString(request.getParameterMap());
+            if (!StringUtil.isEmpty(reqBody)) {
+                Tags.HTTP.REQUEST_BODY.set(span, requestParams);
             }
-            Tags.HTTP.REQUEST_ARGS.set(span, params.toString());
 
             span.setComponent(ComponentsDefine.SPRING_MVC_ANNOTATION);
             SpanLayer.asHttp(span);
