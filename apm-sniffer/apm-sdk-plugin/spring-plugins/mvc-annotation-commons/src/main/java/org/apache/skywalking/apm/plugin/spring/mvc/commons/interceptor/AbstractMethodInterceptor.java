@@ -92,9 +92,8 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
             if (!StringUtil.isEmpty(requestParams)) {
                 Tags.HTTP.REQUEST_PARAM.set(span, requestParams);
             }
-            String reqBody = JSON.toJSONString(request.getParameterMap());
-            if (!StringUtil.isEmpty(reqBody)) {
-                Tags.HTTP.REQUEST_BODY.set(span, requestParams);
+            if (!request.getParameterMap().isEmpty()) {
+                Tags.HTTP.REQUEST_BODY.set(span, JSON.toJSONString(request.getParameterMap()));
             }
 
             span.setComponent(ComponentsDefine.SPRING_MVC_ANNOTATION);
