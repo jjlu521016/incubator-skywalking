@@ -63,7 +63,7 @@
         <module>apm-sniffer</module>
         <module>apm-application-toolkit</module>
         <module>apm-protocol</module>
-        <module>apm-webapp</module>
+        <!--<module>apm-webapp</module>-->
         <module>apm-dist</module>
         <module>apm-checkstyle</module>
     </modules>
