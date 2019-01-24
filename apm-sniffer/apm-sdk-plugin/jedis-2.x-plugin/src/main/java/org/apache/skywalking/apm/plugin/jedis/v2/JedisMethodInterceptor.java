@@ -20,16 +20,19 @@
 package org.apache.skywalking.apm.plugin.jedis.v2;
 
 import java.lang.reflect.Method;
+import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
-import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
-import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.MethodInterceptResult;
+import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 
 public class JedisMethodInterceptor implements InstanceMethodsAroundInterceptor {
+    private static final ILog logger = LogManager.getLogger(JedisMethodInterceptor.class);
 
     @Override public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments,
         Class<?>[] argumentsTypes, MethodInterceptResult result) throws Throwable {
@@ -39,8 +42,22 @@ public class JedisMethodInterceptor implements InstanceMethodsAroundInterceptor 
         Tags.DB_TYPE.set(span, "Redis");
         SpanLayer.asCache(span);
 
-        if (allArguments.length > 0 && allArguments[0] instanceof String) {
-            Tags.DB_STATEMENT.set(span, method.getName() + " " + allArguments[0]);
+        if (allArguments.length > 0) {
+            String redisInfo = "";
+            if (allArguments[0] instanceof String) {
+                redisInfo = (String)allArguments[0];
+            }
+            // redis key has Serializable
+            else if (allArguments[0] instanceof byte[]) {
+                redisInfo = new String((byte[])allArguments[0]);
+
+            } else if (allArguments[0] instanceof byte[][]) {
+                byte[][] param = (byte[][])allArguments[0];
+                if (param.length > 0) {
+                    redisInfo = new String(param[0]);
+                }
+            }
+            Tags.DB_STATEMENT.set(span, redisInfo);
         }
     }
 
