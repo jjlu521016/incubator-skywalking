@@ -35,7 +35,8 @@ import org.springframework.amqp.core.Message;
 
 /**
  * {@link RabbitListenerInterceptor} create a local span and set the operation name which fetch from
- * <code>org.apache.skywalking.apm.toolkit.trace.annotation.Trace.operationName</code>. if the fetch value is blank string, and
+ * <code>org.apache.skywalking.apm.toolkit.trace.annotation.Trace.operationName</code>. if the fetch value is blank
+ * string, and
  * the operation name will be the method name.
  *
  * @author jjlu521016@gmail.com
@@ -46,10 +47,10 @@ public class RabbitListenerInterceptor implements InstanceMethodsAroundIntercept
 
     @Override
     public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-                             MethodInterceptResult result) throws Throwable {
+        MethodInterceptResult result) throws Throwable {
         ContextCarrier contextCarrier = new ContextCarrier();
-        Channel channel = (Channel) allArguments[0];
-        Message message = (Message) allArguments[1];
+        Channel channel = (Channel)allArguments[0];
+        Message message = (Message)allArguments[1];
         String topic = message.getMessageProperties().getReceivedExchange();
         String queue = message.getMessageProperties().getReceivedRoutingKey();
         String url = channel.getConnection().getAddress().getHostAddress() + channel.getConnection().getPort();
@@ -59,9 +60,8 @@ public class RabbitListenerInterceptor implements InstanceMethodsAroundIntercept
         Tags.MQ_TOPIC.set(activeSpan, topic);
         Tags.MQ_QUEUE.set(activeSpan, queue);
         // record mq message
-        if (allArguments.length > 4) {
-            Tags.MQ_STATEMENT.set(activeSpan, new String((byte[]) allArguments[5]));
-        }
+        Tags.MQ_STATEMENT.set(activeSpan, new String(message.getBody()));
+
         activeSpan.setComponent(ComponentsDefine.RABBITMQ_CONSUMER);
         SpanLayer.asMQ(activeSpan);
         CarrierItem next = contextCarrier.items();
@@ -73,17 +73,16 @@ public class RabbitListenerInterceptor implements InstanceMethodsAroundIntercept
 
     }
 
-
     @Override
     public Object afterMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-                              Object ret) throws Throwable {
+        Object ret) throws Throwable {
         ContextManager.stopSpan();
         return ret;
     }
 
     @Override
     public void handleMethodException(EnhancedInstance objInst, Method method, Object[] allArguments,
-                                      Class<?>[] argumentsTypes, Throwable t) {
+        Class<?>[] argumentsTypes, Throwable t) {
         ContextManager.activeSpan().errorOccurred().log(t);
     }
 }
