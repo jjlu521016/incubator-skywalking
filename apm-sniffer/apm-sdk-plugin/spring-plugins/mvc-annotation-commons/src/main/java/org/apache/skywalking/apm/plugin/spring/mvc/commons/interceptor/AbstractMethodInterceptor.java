@@ -133,10 +133,9 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
                         }
                     }
                 }
+                ContextManager.stopSpan();
             }
         } finally {
-            // fix trace leak
-            ContextManager.stopSpan();
             ContextManager.getRuntimeContext().remove(REQUEST_KEY_IN_RUNTIME_CONTEXT);
             ContextManager.getRuntimeContext().remove(RESPONSE_KEY_IN_RUNTIME_CONTEXT);
         }
