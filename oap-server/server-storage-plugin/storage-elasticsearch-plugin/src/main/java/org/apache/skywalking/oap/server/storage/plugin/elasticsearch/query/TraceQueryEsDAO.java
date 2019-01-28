@@ -20,15 +20,24 @@ package org.apache.skywalking.oap.server.storage.plugin.elasticsearch.query;
 
 import com.google.common.base.Strings;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import org.apache.skywalking.oap.server.core.analysis.manual.segment.SegmentRecord;
-import org.apache.skywalking.oap.server.core.query.entity.*;
+import org.apache.skywalking.oap.server.core.query.entity.BasicTrace;
+import org.apache.skywalking.oap.server.core.query.entity.QueryOrder;
+import org.apache.skywalking.oap.server.core.query.entity.TraceBrief;
+import org.apache.skywalking.oap.server.core.query.entity.TraceState;
 import org.apache.skywalking.oap.server.core.storage.query.ITraceQueryDAO;
 import org.apache.skywalking.oap.server.library.client.elasticsearch.ElasticSearchClient;
 import org.apache.skywalking.oap.server.library.util.BooleanUtils;
 import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.EsDAO;
+import org.apache.skywalking.oap.server.storage.plugin.elasticsearch.base.MatchCNameBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
@@ -67,7 +76,10 @@ public class TraceQueryEsDAO extends EsDAO implements ITraceQueryDAO {
             boolQueryBuilder.must().add(rangeQueryBuilder);
         }
         if (!Strings.isNullOrEmpty(endpointName)) {
-            mustQueryList.add(QueryBuilders.matchPhraseQuery(SegmentRecord.ENDPOINT_NAME, endpointName));
+            //Fuzzy matching
+            boolQueryBuilder.must().add(QueryBuilders.matchQuery(MatchCNameBuilder.INSTANCE.build(SegmentRecord.ENDPOINT_NAME), endpointName));
+            //Accurate matching
+//            mustQueryList.add(QueryBuilders.matchPhraseQuery(SegmentRecord.ENDPOINT_NAME, endpointName));
         }
         if (serviceId != 0) {
             boolQueryBuilder.must().add(QueryBuilders.termQuery(SegmentRecord.SERVICE_ID, serviceId));
